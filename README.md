@@ -230,7 +230,99 @@ sudo tail -f /var/log/update-system.log
 
 ---
 
-### Schritt 11 (Optional): Automatische Sicherheitsupdates aktivieren
+### Schritt 11: USB-Festplatte für Downloads einbinden
+
+1. **USB-Festplatte anschließen** am Raspberry Pi
+
+2. **Festplatte erkennen:**
+```bash
+lsblk
+```
+Notiere dir den Gerätenamen (z.B. `sda1`, `sdb1`).
+
+3. **Dateisystem und UUID prüfen:**
+```bash
+sudo blkid
+```
+Notiere dir die UUID der Festplatte (wichtig für automatisches Mounten).
+
+4. **Mount-Punkt erstellen:**
+```bash
+sudo mkdir -p /mnt/downloads
+```
+
+5. **Festplatte manuell testen:**
+```bash
+# Ersetze sda1 mit deinem Gerät
+sudo mount /dev/sda1 /mnt/downloads
+
+# Testen
+ls -la /mnt/downloads
+```
+
+6. **Berechtigungen setzen (damit JDownloader schreiben kann):**
+```bash
+sudo chown -R pi:pi /mnt/downloads
+sudo chmod -R 775 /mnt/downloads
+```
+
+7. **Automatisches Mounten beim Start einrichten:**
+```bash
+sudo nano /etc/fstab
+```
+
+8. **Folgende Zeile am Ende hinzufügen** (UUID aus Schritt 3 verwenden):
+```bash
+UUID=DEINE-UUID-HIER /mnt/downloads ext4 defaults,nofail 0 0
+```
+
+**Beispiel:**
+```bash
+UUID=1234-5678 /mnt/downloads ext4 defaults,nofail 0 0
+```
+
+**Für NTFS-Festplatten (Windows-formatiert):**
+```bash
+UUID=DEINE-UUID-HIER /mnt/downloads ntfs-3g defaults,nofail,uid=1000,gid=1000 0 0
+```
+
+9. **Speichern:**
+   - Drücke `Ctrl+X`
+   - Drücke `Y`
+   - Drücke `Enter`
+
+10. **Testen ohne Neustart:**
+```bash
+sudo mount -a
+df -h
+```
+
+Du solltest `/mnt/downloads` in der Liste sehen.
+
+11. **JDownloader Download-Pfad ändern:**
+   - Im JDownloader Web-Interface: Einstellungen → Download-Ordner
+   - Setze auf: `/mnt/downloads`
+
+**✓ USB-Festplatte wird jetzt automatisch beim Start gemountet!**
+
+**Wichtige Befehle:**
+```bash
+# Festplatte unmounten
+sudo umount /mnt/downloads
+
+# Festplatte manuell mounten
+sudo mount /dev/sda1 /mnt/downloads
+
+# Überprüfen ob gemountet
+df -h | grep downloads
+
+# Speicherplatz prüfen
+df -h /mnt/downloads
+```
+
+---
+
+### Schritt 12 (Optional): Automatische Sicherheitsupdates aktivieren
 
 ```bash
 sudo apt install unattended-upgrades -y
