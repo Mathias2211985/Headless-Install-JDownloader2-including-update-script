@@ -91,10 +91,30 @@ Sollte etwas wie `openjdk version "17.x.x"` anzeigen.
 
 ### Schritt 5: JDownloader installieren
 
-1. **Verzeichnis erstellen:**
+#### Option A: Automatische Installation (empfohlen)
+
+1. **Installations-Script von Windows auf den Pi kopieren:**
+```powershell
+scp install-jdownloader.sh pi@raspberrypi.local:/home/pi/
+```
+
+2. **Auf dem Raspberry Pi ausführen:**
 ```bash
-sudo mkdir -p /opt/JDownloader
-cd /opt/JDownloader
+chmod +x install-jdownloader.sh
+./install-jdownloader.sh
+```
+
+Das Script installiert automatisch:
+- Java (falls nicht vorhanden)
+- JDownloader in `/opt`
+- Systemd Service mit korrekten Pfaden
+- Autostart beim Booten
+
+#### Option B: Manuelle Installation
+
+1. **In /opt wechseln:**
+```bash
+cd /opt
 ```
 
 2. **JDownloader herunterladen:**
@@ -113,6 +133,8 @@ sudo java -Djava.awt.headless=true -jar JDownloader.jar -norestart
 
 ### Schritt 6: JDownloader als Systemdienst einrichten
 
+**Hinweis:** Bei Verwendung des Installations-Scripts (Option A) wurde der Service bereits automatisch eingerichtet. Dieser Schritt ist nur bei manueller Installation nötig.
+
 1. **Service-Datei erstellen:**
 ```bash
 sudo nano /etc/systemd/system/jdownloader.service
@@ -127,13 +149,16 @@ After=network.target
 [Service]
 Type=simple
 User=pi
-WorkingDirectory=/opt/JDownloader
-ExecStart=/usr/bin/java -Djava.awt.headless=true -jar /opt/JDownloader/JDownloader.jar
+WorkingDirectory=/opt
+ExecStart=/usr/bin/java -Djava.awt.headless=true -jar /opt/JDownloader.jar
 Restart=always
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
 ```
+
+**WICHTIG:** `WorkingDirectory` ist `/opt` (nicht `/opt/JDownloader`), da JDownloader direkt in `/opt` installiert wurde.
 
 3. **Datei speichern:**
    - Drücke `Ctrl+X`
@@ -174,16 +199,11 @@ Du solltest "active (running)" sehen. Mit `Q` (Taste drücken) verlässt du die 
 
 #### Option B: Direkter Web-Zugriff (im lokalen Netzwerk)
 
-- Öffne Browser und gehe zu: `http://raspberrypi.local:8080`
-- Oder mit IP-Adresse: `http://192.168.x.x:8080`
-
----
-
 ### Schritt 9: Update-Script installieren (automatische Updates)
 
 1. **Script von Windows auf den Raspberry Pi kopieren** (PowerShell auf deinem PC):
 ```powershell
-scp c:\Test\autostart\JDownlaoder\update-system.sh pi@raspberrypi.local:/home/pi/
+scp update-system.sh pi@raspberrypi.local:/home/pi/
 ```
 Passwort eingeben.
 
@@ -194,6 +214,11 @@ sudo chmod +x /usr/local/bin/update-system.sh
 ```
 
 3. **Script testen:**
+```bash
+sudo update-system.sh
+```
+
+Das Script aktualisiert automatisch System und JDownloader (mit korrekten Pfaden in `/opt`).
 ```bash
 sudo update-system.sh
 ```
@@ -448,6 +473,21 @@ scp ~/.ssh/id_ed25519.pub pi@raspberrypi.local:~/.ssh/authorized_keys
 
 **Problem:** Service ist "failed" oder "inactive"
 
+#### Schnelle Lösung mit Reparatur-Script:
+```powershell
+# Von Windows:
+scp repair-service.sh pi@raspberrypi.local:/home/pi/
+```
+```bash
+# Auf dem Pi:
+chmod +x repair-service.sh
+./repair-service.sh
+```
+
+Das Script findet automatisch den korrekten Pfad und repariert die Service-Datei.
+
+#### Manuelle Lösungen:
+
 **Lösung 1 - Logs prüfen:**
 ```bash
 sudo journalctl -u jdownloader -n 50
@@ -460,14 +500,30 @@ java -version
 
 **Lösung 3 - JDownloader.jar prüfen:**
 ```bash
-ls -la /opt/JDownloader/JDownloader.jar
+# Prüfe ob JDownloader in /opt liegt:
+ls -la /opt/JDownloader.jar
+
+# Falls nicht gefunden, suche:
+find /opt -name "JDownloader.jar"
 ```
 
 **Lösung 4 - Manuell starten zum Testen:**
 ```bash
-cd /opt/JDownloader
+cd /opt
 sudo -u pi java -Djava.awt.headless=true -jar JDownloader.jar
 ```
+
+**Lösung 5 - Falsche Pfade in Service-Datei:**
+Wenn der Fehler "CHDIR: No such file or directory" auftritt, sind die Pfade falsch.
+```bash
+# Service-Datei prüfen:
+cat /etc/systemd/system/jdownloader.service
+
+# Sollte sein:
+# WorkingDirectory=/opt
+# ExecStart=/usr/bin/java -Djava.awt.headless=true -jar /opt/JDownloader.jar
+```
+Falls falsch, nutze `repair-service.sh` (siehe oben).
 
 ### Kein Zugriff über Netzwerk
 
@@ -590,7 +646,66 @@ sudo tail /var/log/update-system.log
 
 ---
 
+### Mehrfach laufende JDownloader-Instanzen
+
+**Problem:** JDownloader läuft mehrmals gleichzeitig
+
+**Diagnose:**
+```powershell
+# Von Windows:
+scp diagnose-jdownloader.sh pi@raspberrypi.local:/home/pi/
+```
+```bash
+# Auf dem Pi:
+chmod +x diagnose-jdownloader.sh
+./diagnose-jdownloader.sh
+```
+
+Das Diagnose-Script prüft:
+- Anzahl laufender Prozesse
+- Service-Status
+- Doppelte Autostart-Einträge (Cron, rc.local, etc.)
+
+**Lösung:**
+```bash
+# Fix-Script ausführen:
+chmod +x fix-jdownloader.sh
+./fix-jdownloader.sh
+```
+
+Das Script beendet alle Prozesse, entfernt doppelte Einträge und startet JDownloader sauber neu.
+
+---
+
 ## Anhang: Technische Details
+
+### Verfügbare Helper-Scripts
+
+**1. install-jdownloader.sh** - Automatische Installation
+- Installiert Java automatisch
+- Lädt JDownloader herunter in `/opt`
+- Richtet systemd Service ein
+- Startet JDownloader automatisch
+
+**2. repair-service.sh** - Service-Datei reparieren
+- Findet automatisch den richtigen JDownloader-Pfad
+- Korrigiert WorkingDirectory und ExecStart
+- Startet Service neu
+
+**3. diagnose-jdownloader.sh** - Problem-Diagnose
+- Zeigt alle laufenden JDownloader-Prozesse
+- Prüft Service-Konfiguration
+- Findet doppelte Autostart-Einträge
+
+**4. fix-jdownloader.sh** - Behebt mehrfach laufende Instanzen
+- Beendet alle JDownloader-Prozesse
+- Entfernt doppelte Autostart-Einträge
+- Startet JDownloader sauber neu
+
+**5. update-system.sh** - Automatische Updates
+- System-Updates (apt)
+- JDownloader-Updates
+- Für Cron-Job geeignet
 
 ### Was macht das Update-Script?
 Das Script (`update-system.sh`) führt folgende Aktionen aus:
@@ -603,6 +718,16 @@ Das Script (`update-system.sh`) führt folgende Aktionen aus:
 7. Startet JDownloader neu
 8. Zeigt System-Informationen an
 9. Warnt bei notwendigem Neustart
+
+### Installations-Pfade
+- **JDownloader Installation:** `/opt/JDownloader.jar`
+- **JDownloader Config:** `/opt/cfg/`
+- **Working Directory:** `/opt`
+- **Service-Datei:** `/etc/systemd/system/jdownloader.service`
+- **Update-Script:** `/usr/local/bin/update-system.sh`
+- **Update-Logs:** `/var/log/update-system.log`
+
+**Wichtig:** JDownloader wird direkt in `/opt` installiert, nicht in `/opt/JDownloader`!
 
 ### Systemanforderungen
 - Raspberry Pi 3, 4 oder 5
@@ -626,5 +751,6 @@ Das Script (`update-system.sh`) führt folgende Aktionen aus:
 ---
 
 **Erstellt:** Dezember 2025  
-**Version:** 1.0  
-**Support:** Bei Problemen die Fehlerbehebung konsultieren oder Logs prüfen
+**Version:** 2.0  
+**Letzte Änderung:** 07.12.2025  
+**Support:** Bei Problemen die Fehlerbehebung konsultieren, Diagnose-Scripts nutzen oder Logs prüfen

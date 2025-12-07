@@ -80,16 +80,16 @@ else
     JDOWNLOADER_WAS_RUNNING=false
 fi
 
-if [ -f "/opt/JDownloader/JDownloader.jar" ]; then
+if [ -f "/opt/JDownloader.jar" ]; then
     info "JDownloader gefunden, starte Update..."
-    cd /opt/JDownloader
+    cd /opt
     
     # Update im Hintergrund, max 60 Sekunden warten
     timeout 60s sudo java -jar JDownloader.jar -update 2>/dev/null || true
     
     success "JDownloader Update durchgeführt"
 else
-    error "JDownloader.jar nicht gefunden in /opt/JDownloader"
+    error "JDownloader.jar nicht gefunden in /opt"
 fi
 
 # JDownloader wieder starten wenn er vorher lief
